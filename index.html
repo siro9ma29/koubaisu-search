@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>公倍数さがし ― ブロックで見つけよう</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #EEF3F5;
+    --ink: #26313C;
+    --ink-soft: #5B6672;
+    --paper: #FFFFFF;
+    --paper-edge: #DCE4E9;
+    --line-dot: #B9C6CD;
+
+    --n2: #3F8EDB;
+    --n2-dark: #2B6BAE;
+    --n2-pale: #DDEBFA;
+
+    --n3: #F0A03C;
+    --n3-dark: #C97E22;
+    --n3-pale: #FBEBD6;
+
+    --n4: #6BAA5C;
+    --n4-dark: #4C8640;
+    --n4-pale: #E2F0DD;
+
+    --hit: #E14F45;
+    --hit-pale: #FCE3E1;
+
+    --wood-1: #C69463;
+    --wood-2: #B37F4E;
+    --cell: 56px;
+    --labelw: 108px;
+    --headerh: 36px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html,body{
+    margin:0; padding:0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+  }
+
+  .app{
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 22px 40px;
+  }
+
+  header.app-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  h1{
+    font-size: 26px;
+    font-weight: 900;
+    margin: 0 0 6px;
+    letter-spacing: .02em;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  h1 .accent{ color: var(--hit); }
+
+  .version-badge{
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: var(--paper-edge);
+    border-radius: 999px;
+    padding: 3px 11px;
+    letter-spacing: .03em;
+    vertical-align: middle;
+  }
+
+  .instructions{
+    margin:0;
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.7;
+    max-width: 62ch;
+  }
+
+  .found-panel{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 14px;
+    padding: 10px 16px;
+    min-width: 220px;
+  }
+  .found-panel .fp-label{
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .found-chips{
+    display:flex;
+    gap:6px;
+    flex-wrap: wrap;
+  }
+  .found-chips .chip{
+    background: var(--hit-pale);
+    color: var(--hit);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    animation: chipIn .35s ease;
+  }
+  .found-chips .chip.empty{
+    background: transparent;
+    color: var(--ink-soft);
+    font-weight: 400;
+    font-size: 13px;
+    padding: 3px 0;
+  }
+
+  @keyframes chipIn{
+    from{ transform: scale(.4); opacity:0; }
+    to{ transform: scale(1); opacity:1; }
+  }
+
+  /* ---------- Mode switch ---------- */
+
+  .mode-bar{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .mode-bar .mode-caption{
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+  .mode-switch{
+    display:inline-flex;
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 999px;
+    padding: 4px;
+    gap: 4px;
+  }
+  .mode-btn{
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 18px;
+    cursor: pointer;
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    transition: background .18s ease, color .18s ease;
+  }
+  .mode-btn .mode-nums{
+    display:inline-flex;
+    gap: 4px;
+  }
+  .mode-btn .mode-nums span{
+    width: 18px; height: 18px;
+    border-radius: 5px;
+    font-size: 11px;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+    opacity: .55;
+  }
+  .mode-btn .mode-nums span.d2{ background: var(--n2); }
+  .mode-btn .mode-nums span.d3{ background: var(--n3); }
+  .mode-btn .mode-nums span.d4{ background: var(--n4); }
+  .mode-btn.active{
+    background: var(--ink);
+    color: #fff;
+  }
+  .mode-btn.active .mode-nums span{ opacity: 1; }
+  .mode-btn:not(.active):hover{ background: #F2F5F6; color: var(--ink); }
+
+  /* ---------- Board (whiteboard / worksheet) ---------- */
+
+  .board-card{
+    background: var(--paper);
+    border-radius: 18px;
+    border: 1px solid var(--paper-edge);
+    box-shadow: 0 10px 24px rgba(38,49,60,0.06);
+    padding: 18px 4px 22px 18px;
+    margin-bottom: 26px;
+  }
+
+  .board-scroll{
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 6px;
+  }
+
+  .board-inner{
+    position: relative;
+  }
+
+  .header-row{
+    position: relative;
+    height: var(--headerh);
+  }
+
+  .axis-num{
+    position:absolute;
+    top:50%;
+    transform: translate(-50%,-50%);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    line-height: 1;
+    transition: color .2s ease;
+    z-index: 3;
+    pointer-events:none;
+  }
+  .axis-num.found{
+    width: 27px;
+    height: 27px;
+    border-radius: 50%;
+    background: var(--hit);
+    color: #fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size: 13px;
+    box-shadow: 0 3px 7px rgba(225,79,69,0.4);
+    animation: badgeIn .32s cubic-bezier(.3,1.6,.4,1);
+    z-index: 5;
+  }
+  @keyframes badgeIn{
+    0%{ transform: translate(-50%,-50%) scale(.3); }
+    100%{ transform: translate(-50%,-50%) scale(1); }
+  }
+
+  .row{
+    display:flex;
+    height: var(--cell);
+  }
+  .row + .row{ border-top: none; }
+  .row.mode-hidden{ display:none; }
+
+  .row-label{
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    width: var(--labelw);
+    flex: 0 0 var(--labelw);
+    display:flex;
+    align-items:center;
+    background: var(--paper);
+    font-weight: 700;
+    font-size: 15px;
+    padding-right: 10px;
+    white-space: nowrap;
+  }
+  .row-label .swatch{
+    width: 12px; height:12px; border-radius: 4px;
+    margin-right: 8px; flex-shrink:0;
+  }
+  .row[data-row="2"] .row-label .swatch{ background: var(--n2); }
+  .row[data-row="3"] .row-label .swatch{ background: var(--n3); }
+  .row[data-row="4"] .row-label .swatch{ background: var(--n4); }
+
+  .cells{
+    position: relative;
+    display:grid;
+    grid-auto-flow: column;
+  }
+
+  .cell{
+    width: var(--cell);
+    height: var(--cell);
+    border: 1px dotted var(--line-dot);
+    transition: background-color .15s ease;
+  }
+
+  .cells.drop-ready .cell:not(.filled){
+    background: rgba(0,0,0,0.025);
+  }
+  .row[data-row="2"] .cells.drop-ready{ box-shadow: inset 0 0 0 2px var(--n2-pale); }
+  .row[data-row="3"] .cells.drop-ready{ box-shadow: inset 0 0 0 2px var(--n3-pale); }
+  .row[data-row="4"] .cells.drop-ready{ box-shadow: inset 0 0 0 2px var(--n4-pale); }
+
+  .cell.filled{
+    border-style: solid;
+    border-color: rgba(0,0,0,0.12);
+  }
+  .row[data-row="2"] .cell.filled{ background: var(--n2); }
+  .row[data-row="3"] .cell.filled{ background: var(--n3); }
+  .row[data-row="4"] .cell.filled{ background: var(--n4); }
+
+  .cell.just-placed{
+    animation: pop .28s cubic-bezier(.3,1.6,.4,1);
+  }
+  @keyframes pop{
+    0%{ transform: scale(.35); opacity:.2; }
+    100%{ transform: scale(1); opacity:1; }
+  }
+
+  .overlay{
+    position:absolute;
+    top: var(--headerh);
+    left: var(--labelw);
+    pointer-events: none;
+  }
+  .divider{
+    position:absolute;
+    top:0;
+    width: 0;
+    height: 100%;
+    border-left: 3px solid var(--hit);
+    opacity: 0;
+    transform: scaleY(0);
+    transform-origin: top;
+    transition: opacity .3s ease, transform .4s ease;
+    z-index: 1;
+  }
+  .divider.show{ opacity: 1; transform: scaleY(1); }
+
+  /* ---------- Tray (wooden shelf of blocks) ---------- */
+
+  .tray-card{
+    border-radius: 18px;
+    padding: 20px 22px 24px;
+    background:
+      repeating-linear-gradient(
+        90deg,
+        var(--wood-1) 0px, var(--wood-1) 3px,
+        var(--wood-2) 3px, var(--wood-2) 5px
+      );
+    box-shadow: 0 10px 24px rgba(38,49,60,0.10), inset 0 2px 0 rgba(255,255,255,0.15);
+    position: relative;
+  }
+
+  .tray-title{
+    color: rgba(255,255,255,0.92);
+    font-weight: 700;
+    font-size: 14px;
+    margin: 0 0 14px 2px;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+  }
+
+  .tray-blocks{
+    display:flex;
+    gap: 34px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .tray-unit{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap: 8px;
+  }
+  .tray-unit.mode-hidden{ display:none; }
+
+  .tray-unit .tray-num{
+    color: rgba(255,255,255,0.85);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .tray-block{
+    display:grid;
+    grid-auto-flow: column;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.18), 0 6px 10px rgba(0,0,0,0.18);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    transition: transform .12s ease;
+  }
+  .tray-block:active{ cursor: grabbing; }
+  .tray-block:hover{ transform: translateY(-2px); }
+
+  .tray-block .u{
+    width: var(--cell);
+    height: var(--cell);
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+
+  .tray-block[data-n="2"] .u{ background: var(--n2); }
+  .tray-block[data-n="3"] .u{ background: var(--n3); }
+  .tray-block[data-n="4"] .u{ background: var(--n4); }
+
+  .drag-clone{
+    position: fixed;
+    top:0; left:0;
+    display:grid;
+    grid-auto-flow: column;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.28);
+    pointer-events: none;
+    z-index: 999;
+    will-change: transform;
+  }
+  .drag-clone .u{
+    width: var(--cell);
+    height: var(--cell);
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+  .drag-clone[data-n="2"] .u{ background: var(--n2); }
+  .drag-clone[data-n="3"] .u{ background: var(--n3); }
+  .drag-clone[data-n="4"] .u{ background: var(--n4); }
+
+  footer.controls{
+    display:flex;
+    justify-content:center;
+    margin-top: 22px;
+  }
+  .reset-btn{
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    background: var(--paper);
+    border: 1px solid var(--paper-edge);
+    border-radius: 999px;
+    padding: 9px 22px;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .reset-btn:hover{ background: #F2F5F6; color: var(--ink); }
+
+  @media (max-width: 640px){
+    h1{ font-size: 21px; }
+    .found-panel{ min-width: 0; }
+    :root{ --cell: 46px; --labelw: 84px; }
+    .row-label{ font-size: 13px; }
+    .tray-blocks{ gap: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app" id="appRoot">
+  <header class="app-head">
+    <div>
+      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.2</span></h1>
+      <p class="instructions">下にあるブロックを、上の表の同じ色の場所までドラッグして置こう。表の上には0,1,2,3…の数字が並んでいるよ。選んだすべての数の倍数が同じ数でそろうと、その数字が赤い丸になって、仕切り線が入るよ。それが「公倍数」だよ。</p>
+    </div>
+    <div class="found-panel">
+      <span class="fp-label">見つけた公倍数</span>
+      <div class="found-chips" id="foundChips">
+        <span class="chip empty">まだないよ</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="mode-bar">
+    <span class="mode-caption">モード</span>
+    <div class="mode-switch" role="group" aria-label="モード切り替え">
+      <button class="mode-btn" data-mode="2" id="modeBtn2">
+        2つの数
+        <span class="mode-nums"><span class="d2">2</span><span class="d3">3</span></span>
+      </button>
+      <button class="mode-btn" data-mode="3" id="modeBtn3">
+        3つの数
+        <span class="mode-nums"><span class="d2">2</span><span class="d3">3</span><span class="d4">4</span></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="board-card">
+    <div class="board-scroll" id="boardScroll">
+      <div class="board-inner" id="boardInner">
+        <div class="header-row" id="headerRow"></div>
+
+        <div class="row" data-row="2">
+          <div class="row-label"><span class="swatch"></span>2の倍数</div>
+          <div class="cells" data-row-number="2" id="cells-2"></div>
+        </div>
+        <div class="row" data-row="3">
+          <div class="row-label"><span class="swatch"></span>3の倍数</div>
+          <div class="cells" data-row-number="3" id="cells-3"></div>
+        </div>
+        <div class="row" data-row="4" id="row-4">
+          <div class="row-label"><span class="swatch"></span>4の倍数</div>
+          <div class="cells" data-row-number="4" id="cells-4"></div>
+        </div>
+
+        <div class="overlay" id="overlay"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tray-card">
+    <p class="tray-title">ブロック置場（いくらでも取り出せるよ）</p>
+    <div class="tray-blocks">
+      <div class="tray-unit">
+        <div class="tray-block" data-n="2" id="tray-2"><div class="u"></div><div class="u"></div></div>
+        <span class="tray-num">2</span>
+      </div>
+      <div class="tray-unit">
+        <div class="tray-block" data-n="3" id="tray-3"><div class="u"></div><div class="u"></div><div class="u"></div></div>
+        <span class="tray-num">3</span>
+      </div>
+      <div class="tray-unit" id="tray-unit-4">
+        <div class="tray-block" data-n="4" id="tray-4"><div class="u"></div><div class="u"></div><div class="u"></div><div class="u"></div></div>
+        <span class="tray-num">4</span>
+      </div>
+    </div>
+  </div>
+
+  <footer class="controls">
+    <button class="reset-btn" id="resetBtn">はじめからやり直す</button>
+  </footer>
+</div>
+
+<script>
+(function(){
+  const COLUMNS = 48;
+  const ALL_NUMS = [2,3,4];
+  const MODES = { '2': [2,3], '3': [2,3,4] };
+
+  let activeNums = MODES['3'];
+
+  const state = {
+    filled: {2:0, 3:0, 4:0},
+    found: []
+  };
+
+  const cellSizePx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--cell'));
+  const labelWidthPx = () => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--labelw'));
+
+  const cellsEls = { 2: document.getElementById('cells-2'), 3: document.getElementById('cells-3'), 4: document.getElementById('cells-4') };
+  const boardInner = document.getElementById('boardInner');
+  const overlay = document.getElementById('overlay');
+  const headerRow = document.getElementById('headerRow');
+  const foundChips = document.getElementById('foundChips');
+  const appRoot = document.getElementById('appRoot');
+  const row4 = document.getElementById('row-4');
+  const trayUnit4 = document.getElementById('tray-unit-4');
+
+  const axisEls = {};
+
+  function overlayHeight(){
+    return activeNums.length * cellSizePx();
+  }
+
+  function buildCells(){
+    ALL_NUMS.forEach(n=>{
+      const container = cellsEls[n];
+      container.innerHTML = '';
+      container.style.gridTemplateColumns = `repeat(${COLUMNS}, var(--cell))`;
+      for(let i=0;i<COLUMNS;i++){
+        const d = document.createElement('div');
+        d.className = 'cell';
+        container.appendChild(d);
+      }
+    });
+
+    headerRow.innerHTML = '';
+    for(let i=0;i<=COLUMNS;i++){
+      const num = document.createElement('div');
+      num.className = 'axis-num';
+      num.textContent = i;
+      num.style.left = (labelWidthPx() + i*cellSizePx()) + 'px';
+      headerRow.appendChild(num);
+      axisEls[i] = num;
+    }
+
+    boardInner.style.width = (labelWidthPx() + COLUMNS*cellSizePx()) + 'px';
+    overlay.style.height = overlayHeight() + 'px';
+  }
+
+  function renderFilled(n, highlightFrom){
+    const container = cellsEls[n];
+    const kids = container.children;
+    for(let i=0;i<kids.length;i++){
+      const el = kids[i];
+      const shouldFill = i < state.filled[n];
+      const wasFilled = el.classList.contains('filled');
+      if(shouldFill && !wasFilled){
+        el.classList.add('filled');
+        if(highlightFrom !== undefined && i >= highlightFrom){
+          el.classList.add('just-placed');
+          setTimeout(()=>el.classList.remove('just-placed'), 320);
+        }
+      } else if(!shouldFill && wasFilled){
+        el.classList.remove('filled');
+      }
+    }
+  }
+
+  function renderFoundChips(){
+    if(state.found.length === 0){
+      foundChips.innerHTML = '<span class="chip empty">まだないよ</span>';
+      return;
+    }
+    foundChips.innerHTML = state.found.map(v=>`<span class="chip">${v}</span>`).join('');
+  }
+
+  function markFound(value){
+    const x = value * cellSizePx();
+
+    const line = document.createElement('div');
+    line.className = 'divider';
+    line.dataset.value = value;
+    line.style.left = x + 'px';
+    overlay.appendChild(line);
+    requestAnimationFrame(()=> line.classList.add('show'));
+
+    const axisEl = axisEls[value];
+    if(axisEl){
+      axisEl.classList.add('found');
+    }
+  }
+
+  function checkCommonMultiple(){
+    const vals = activeNums.map(n => state.filled[n]);
+    const first = vals[0];
+    const allEqual = vals.every(v => v === first);
+    if(first > 0 && allEqual && !state.found.includes(first)){
+      state.found.push(first);
+      markFound(first);
+      renderFoundChips();
+    }
+  }
+
+  function ensureVisible(n){
+    const scroller = document.getElementById('boardScroll');
+    const rightEdge = labelWidthPx() + state.filled[n]*cellSizePx();
+    const visibleRight = scroller.scrollLeft + scroller.clientWidth;
+    if(rightEdge > visibleRight - cellSizePx()*2){
+      scroller.scrollTo({left: rightEdge - scroller.clientWidth + cellSizePx()*3, behavior:'smooth'});
+    }
+  }
+
+  function placeBlock(n){
+    if(!activeNums.includes(n)) return;
+    const before = state.filled[n];
+    state.filled[n] += n;
+    renderFilled(n, before);
+    checkCommonMultiple();
+    ensureVisible(n);
+  }
+
+  function resetAll(){
+    state.filled = {2:0,3:0,4:0};
+    state.found = [];
+    overlay.innerHTML = '';
+    Object.values(axisEls).forEach(el => el.classList.remove('found'));
+    ALL_NUMS.forEach(n=>renderFilled(n));
+    renderFoundChips();
+    document.getElementById('boardScroll').scrollTo({left:0});
+  }
+
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+
+  function applyMode(mode){
+    activeNums = MODES[mode];
+    document.querySelectorAll('.mode-btn').forEach(b=>{
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    const showFour = activeNums.includes(4);
+    row4.classList.toggle('mode-hidden', !showFour);
+    trayUnit4.classList.toggle('mode-hidden', !showFour);
+    overlay.style.height = overlayHeight() + 'px';
+    resetAll();
+  }
+
+  document.getElementById('modeBtn2').addEventListener('click', ()=> applyMode('2'));
+  document.getElementById('modeBtn3').addEventListener('click', ()=> applyMode('3'));
+
+  /* ---------------- Drag & drop ---------------- */
+
+  function setupDrag(n){
+    const trayEl = document.getElementById('tray-' + n);
+
+    trayEl.addEventListener('pointerdown', (e)=>{
+      if(!activeNums.includes(n)) return;
+      e.preventDefault();
+      const startRect = trayEl.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+
+      const clone = document.createElement('div');
+      clone.className = 'drag-clone';
+      clone.dataset.n = n;
+      for(let i=0;i<n;i++){
+        const u = document.createElement('div');
+        u.className = 'u';
+        clone.appendChild(u);
+      }
+      clone.style.width = startRect.width + 'px';
+      clone.style.height = startRect.height + 'px';
+      clone.style.left = startRect.left + 'px';
+      clone.style.top = startRect.top + 'px';
+      document.body.appendChild(clone);
+
+      let currentTargetRow = null;
+
+      function clearHighlights(){
+        ALL_NUMS.forEach(m=> cellsEls[m].classList.remove('drop-ready'));
+      }
+
+      function onMove(ev){
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        clone.style.left = (startRect.left + dx) + 'px';
+        clone.style.top = (startRect.top + dy) + 'px';
+
+        clone.style.pointerEvents = 'none';
+        const under = document.elementFromPoint(ev.clientX, ev.clientY);
+        clone.style.pointerEvents = '';
+
+        clearHighlights();
+        currentTargetRow = null;
+        if(under){
+          const cellsContainer = under.closest('.cells');
+          if(cellsContainer && parseInt(cellsContainer.dataset.rowNumber,10) === n){
+            cellsContainer.classList.add('drop-ready');
+            currentTargetRow = cellsContainer;
+          }
+        }
+      }
+
+      function onUp(ev){
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        clearHighlights();
+
+        if(currentTargetRow){
+          const rect = currentTargetRow.getBoundingClientRect();
+          const targetLeft = rect.left + state.filled[n]*cellSizePx();
+          const targetTop = rect.top;
+          clone.style.transition = 'left .22s ease, top .22s ease';
+          clone.style.left = targetLeft + 'px';
+          clone.style.top = targetTop + 'px';
+          setTimeout(()=>{
+            clone.remove();
+            placeBlock(n);
+          }, 220);
+        } else {
+          clone.style.transition = 'left .25s ease, top .25s ease';
+          clone.style.left = startRect.left + 'px';
+          clone.style.top = startRect.top + 'px';
+          setTimeout(()=> clone.remove(), 250);
+        }
+      }
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  }
+
+  buildCells();
+  ALL_NUMS.forEach(setupDrag);
+  renderFoundChips();
+  applyMode('3');
+
+  window.addEventListener('resize', ()=>{
+    boardInner.style.width = (labelWidthPx() + COLUMNS*cellSizePx()) + 'px';
+    overlay.style.height = overlayHeight() + 'px';
+    for(let i=0;i<=COLUMNS;i++){
+      if(axisEls[i]) axisEls[i].style.left = (labelWidthPx() + i*cellSizePx()) + 'px';
+    }
+    overlay.querySelectorAll('.divider').forEach(el=>{
+      const v = parseFloat(el.dataset.value);
+      el.style.left = (v*cellSizePx()) + 'px';
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
