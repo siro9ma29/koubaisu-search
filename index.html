@@ -477,7 +477,7 @@
 <div class="app" id="appRoot">
   <header class="app-head">
     <div>
-      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.4</span></h1>
+      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.5</span></h1>
       <p class="instructions">下にあるブロックを上の方の同じ色の場所まで運ぼう。<br>一番右のブロック（白い縁がついている）は、表の外まで運ぶとはがして消すことができるよ。</p>
     </div>
     <div class="found-panel">
@@ -714,6 +714,7 @@
     state.filled[n] -= n;
     renderFilled(n);
     pruneFoundAfterRemoval(n);
+    checkCommonMultiple();
   }
 
   function resetAll(){
