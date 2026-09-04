@@ -15,17 +15,17 @@
     --paper-edge: #DCE4E9;
     --line-dot: #B9C6CD;
 
-    --n2: #3F8EDB;
-    --n2-dark: #2B6BAE;
-    --n2-pale: #DDEBFA;
+    --n2: #F0A03C;
+    --n2-dark: #C97E22;
+    --n2-pale: #FBEBD6;
 
-    --n3: #F0A03C;
-    --n3-dark: #C97E22;
-    --n3-pale: #FBEBD6;
+    --n3: #6BAA5C;
+    --n3-dark: #4C8640;
+    --n3-pale: #E2F0DD;
 
-    --n4: #6BAA5C;
-    --n4-dark: #4C8640;
-    --n4-pale: #E2F0DD;
+    --n4: #8B5FBF;
+    --n4-dark: #6B4394;
+    --n4-pale: #EFE3F7;
 
     --hit: #E14F45;
     --hit-pale: #FCE3E1;
@@ -291,7 +291,7 @@
     width: var(--cell);
     height: var(--cell);
     border: 1px dotted var(--line-dot);
-    transition: background-color .15s ease;
+    transition: background-color .15s ease, box-shadow .15s ease;
   }
 
   .cells.drop-ready .cell:not(.filled){
@@ -316,6 +316,13 @@
     0%{ transform: scale(.35); opacity:.2; }
     100%{ transform: scale(1); opacity:1; }
   }
+
+  /* the right-most block of each row can be peeled off */
+  .cell.filled.removable{
+    cursor: grab;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.55);
+  }
+  .cell.filled.removable:active{ cursor: grabbing; }
 
   .overlay{
     position:absolute;
@@ -416,15 +423,25 @@
     pointer-events: none;
     z-index: 999;
     will-change: transform;
+    transition: box-shadow .15s ease;
   }
   .drag-clone .u{
     width: var(--cell);
     height: var(--cell);
     border: 1px solid rgba(0,0,0,0.15);
+    transition: filter .15s ease;
   }
   .drag-clone[data-n="2"] .u{ background: var(--n2); }
   .drag-clone[data-n="3"] .u{ background: var(--n3); }
   .drag-clone[data-n="4"] .u{ background: var(--n4); }
+
+  /* visual cue while a peeled block is about to be deleted */
+  .drag-clone.removing{
+    box-shadow: 0 0 0 3px var(--hit), 0 10px 20px rgba(0,0,0,0.28);
+  }
+  .drag-clone.removing .u{
+    filter: grayscale(35%) brightness(0.9);
+  }
 
   footer.controls{
     display:flex;
@@ -459,8 +476,8 @@
 <div class="app" id="appRoot">
   <header class="app-head">
     <div>
-      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.2</span></h1>
-      <p class="instructions">下にあるブロックを、上の表の同じ色の場所までドラッグして置こう。表の上には0,1,2,3…の数字が並んでいるよ。選んだすべての数の倍数が同じ数でそろうと、その数字が赤い丸になって、仕切り線が入るよ。それが「公倍数」だよ。</p>
+      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.3</span></h1>
+      <p class="instructions">下にあるブロックを、上の表の同じ色の場所までドラッグして置こう。表の上には0,1,2,3…の数字が並んでいるよ。選んだすべての数の倍数が同じ数でそろうと、その数字が赤い丸になって、仕切り線が入るよ。それが「公倍数」だよ。置いたブロックのうち、いちばん右のブロック（白いふちがついているよ）は、表の外までドラッグするとはがして消すことができるよ。</p>
     </div>
     <div class="found-panel">
       <span class="fp-label">見つけた公倍数</span>
@@ -587,12 +604,15 @@
     overlay.style.height = overlayHeight() + 'px';
   }
 
+  // Keeps the "filled" state of every cell in sync with state.filled[n],
+  // and marks the right-most block (the one that can be peeled off) as removable.
   function renderFilled(n, highlightFrom){
     const container = cellsEls[n];
     const kids = container.children;
+    const filledCount = state.filled[n];
     for(let i=0;i<kids.length;i++){
       const el = kids[i];
-      const shouldFill = i < state.filled[n];
+      const shouldFill = i < filledCount;
       const wasFilled = el.classList.contains('filled');
       if(shouldFill && !wasFilled){
         el.classList.add('filled');
@@ -603,6 +623,8 @@
       } else if(!shouldFill && wasFilled){
         el.classList.remove('filled');
       }
+      const isRemovable = shouldFill && filledCount > 0 && i >= filledCount - n;
+      el.classList.toggle('removable', isRemovable);
     }
   }
 
@@ -630,6 +652,13 @@
     }
   }
 
+  function unmarkFound(value){
+    const divider = overlay.querySelector(`.divider[data-value="${value}"]`);
+    if(divider) divider.remove();
+    const axisEl = axisEls[value];
+    if(axisEl) axisEl.classList.remove('found');
+  }
+
   function checkCommonMultiple(){
     const vals = activeNums.map(n => state.filled[n]);
     const first = vals[0];
@@ -637,6 +666,25 @@
     if(first > 0 && allEqual && !state.found.includes(first)){
       state.found.push(first);
       markFound(first);
+      renderFoundChips();
+    }
+  }
+
+  // After a block is peeled off row n, any previously-found common multiple
+  // that is no longer reachable by row n's remaining blocks is un-marked too.
+  function pruneFoundAfterRemoval(n){
+    const kept = [];
+    let changed = false;
+    state.found.forEach(v=>{
+      if(v <= state.filled[n]){
+        kept.push(v);
+      } else {
+        unmarkFound(v);
+        changed = true;
+      }
+    });
+    if(changed){
+      state.found = kept;
       renderFoundChips();
     }
   }
@@ -657,6 +705,14 @@
     renderFilled(n, before);
     checkCommonMultiple();
     ensureVisible(n);
+  }
+
+  // Peels the right-most block off row n. The block disappears entirely.
+  function removeLastBlock(n){
+    if(state.filled[n] < n) return;
+    state.filled[n] -= n;
+    renderFilled(n);
+    pruneFoundAfterRemoval(n);
   }
 
   function resetAll(){
@@ -686,7 +742,7 @@
   document.getElementById('modeBtn2').addEventListener('click', ()=> applyMode('2'));
   document.getElementById('modeBtn3').addEventListener('click', ()=> applyMode('3'));
 
-  /* ---------------- Drag & drop ---------------- */
+  /* ---------------- Drag & drop: placing new blocks from the tray ---------------- */
 
   function setupDrag(n){
     const trayEl = document.getElementById('tray-' + n);
@@ -767,8 +823,104 @@
     });
   }
 
+  /* ---------------- Drag & drop: peeling the right-most block off the table ---------------- */
+
+  function setupRemoveDrag(n){
+    const cellsEl = cellsEls[n];
+
+    cellsEl.addEventListener('pointerdown', (e)=>{
+      if(!activeNums.includes(n)) return;
+
+      const target = e.target;
+      if(!target.classList || !target.classList.contains('cell')) return;
+      if(!target.classList.contains('removable')) return;
+
+      const kids = Array.from(cellsEl.children);
+      const filledCount = state.filled[n];
+      if(filledCount < n) return;
+      const lastBlockStart = filledCount - n;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const startCell = kids[lastBlockStart];
+      const startRect = startCell.getBoundingClientRect();
+      const startX = e.clientX, startY = e.clientY;
+
+      // hide the real cells while the clone is being dragged
+      const hiddenCells = [];
+      for(let i=lastBlockStart;i<filledCount;i++){
+        if(kids[i]){
+          kids[i].style.visibility = 'hidden';
+          hiddenCells.push(kids[i]);
+        }
+      }
+
+      const clone = document.createElement('div');
+      clone.className = 'drag-clone';
+      clone.dataset.n = n;
+      for(let i=0;i<n;i++){
+        const u = document.createElement('div');
+        u.className = 'u';
+        clone.appendChild(u);
+      }
+      clone.style.width = (cellSizePx()*n) + 'px';
+      clone.style.height = cellSizePx() + 'px';
+      clone.style.left = startRect.left + 'px';
+      clone.style.top = startRect.top + 'px';
+      document.body.appendChild(clone);
+
+      let willRemove = false;
+
+      function restoreHidden(){
+        hiddenCells.forEach(el => { el.style.visibility = ''; });
+      }
+
+      function onMove(ev){
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+        clone.style.left = (startRect.left + dx) + 'px';
+        clone.style.top = (startRect.top + dy) + 'px';
+
+        clone.style.pointerEvents = 'none';
+        const under = document.elementFromPoint(ev.clientX, ev.clientY);
+        clone.style.pointerEvents = '';
+
+        const overBoard = !!(under && under.closest('.board-card'));
+        willRemove = !overBoard;
+        clone.classList.toggle('removing', willRemove);
+      }
+
+      function onUp(ev){
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+
+        if(willRemove){
+          clone.style.transition = 'opacity .2s ease, transform .2s ease';
+          clone.style.opacity = '0';
+          clone.style.transform = 'scale(.4)';
+          setTimeout(()=> clone.remove(), 200);
+          restoreHidden();
+          removeLastBlock(n);
+        } else {
+          clone.style.transition = 'left .18s ease, top .18s ease';
+          clone.style.left = startRect.left + 'px';
+          clone.style.top = startRect.top + 'px';
+          setTimeout(()=>{
+            clone.remove();
+            restoreHidden();
+          }, 180);
+        }
+      }
+
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  }
+
   buildCells();
   ALL_NUMS.forEach(setupDrag);
+  ALL_NUMS.forEach(setupRemoveDrag);
   renderFoundChips();
   applyMode('3');
 
