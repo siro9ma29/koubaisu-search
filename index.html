@@ -477,7 +477,7 @@
 <div class="app" id="appRoot">
   <header class="app-head">
     <div>
-      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.5</span></h1>
+      <h1>公倍数さがし ― ブロックで見つけよう <span class="version-badge">v1.6</span></h1>
       <p class="instructions">下にあるブロックを上の方の同じ色の場所まで運ぼう。<br>一番右のブロック（白い縁がついている）は、表の外まで運ぶとはがして消すことができるよ。</p>
     </div>
     <div class="found-panel">
@@ -491,12 +491,16 @@
   <div class="mode-bar">
     <span class="mode-caption">モード</span>
     <div class="mode-switch" role="group" aria-label="モード切り替え">
-      <button class="mode-btn" data-mode="2" id="modeBtn2">
-        2つの数
+      <button class="mode-btn" data-mode="2-3" id="modeBtn23">
+        2と3
         <span class="mode-nums"><span class="d2">2</span><span class="d3">3</span></span>
       </button>
-      <button class="mode-btn" data-mode="3" id="modeBtn3">
-        3つの数
+      <button class="mode-btn" data-mode="3-4" id="modeBtn34">
+        3と4
+        <span class="mode-nums"><span class="d3">3</span><span class="d4">4</span></span>
+      </button>
+      <button class="mode-btn" data-mode="2-3-4" id="modeBtn234">
+        2,3,4
         <span class="mode-nums"><span class="d2">2</span><span class="d3">3</span><span class="d4">4</span></span>
       </button>
     </div>
@@ -507,11 +511,11 @@
       <div class="board-inner" id="boardInner">
         <div class="header-row" id="headerRow"></div>
 
-        <div class="row" data-row="2">
+        <div class="row" data-row="2" id="row-2">
           <div class="row-label"><span class="swatch"></span>2の倍数</div>
           <div class="cells" data-row-number="2" id="cells-2"></div>
         </div>
-        <div class="row" data-row="3">
+        <div class="row" data-row="3" id="row-3">
           <div class="row-label"><span class="swatch"></span>3の倍数</div>
           <div class="cells" data-row-number="3" id="cells-3"></div>
         </div>
@@ -528,11 +532,11 @@
   <div class="tray-card">
     <p class="tray-title">ブロック置場（いくらでも取り出せるよ）</p>
     <div class="tray-blocks">
-      <div class="tray-unit">
+      <div class="tray-unit" id="tray-unit-2">
         <div class="tray-block" data-n="2" id="tray-2"><div class="u"></div><div class="u"></div></div>
         <span class="tray-num">2</span>
       </div>
-      <div class="tray-unit">
+      <div class="tray-unit" id="tray-unit-3">
         <div class="tray-block" data-n="3" id="tray-3"><div class="u"></div><div class="u"></div><div class="u"></div></div>
         <span class="tray-num">3</span>
       </div>
@@ -552,9 +556,9 @@
 (function(){
   const COLUMNS = 48;
   const ALL_NUMS = [2,3,4];
-  const MODES = { '2': [2,3], '3': [2,3,4] };
+  const MODES = { '2-3': [2,3], '3-4': [3,4], '2-3-4': [2,3,4] };
 
-  let activeNums = MODES['3'];
+  let activeNums = MODES['2-3-4'];
 
   const state = {
     filled: {2:0, 3:0, 4:0},
@@ -570,8 +574,8 @@
   const headerRow = document.getElementById('headerRow');
   const foundChips = document.getElementById('foundChips');
   const appRoot = document.getElementById('appRoot');
-  const row4 = document.getElementById('row-4');
-  const trayUnit4 = document.getElementById('tray-unit-4');
+  const rowEls = { 2: document.getElementById('row-2'), 3: document.getElementById('row-3'), 4: document.getElementById('row-4') };
+  const trayUnitEls = { 2: document.getElementById('tray-unit-2'), 3: document.getElementById('tray-unit-3'), 4: document.getElementById('tray-unit-4') };
 
   const axisEls = {};
 
@@ -734,15 +738,18 @@
     document.querySelectorAll('.mode-btn').forEach(b=>{
       b.classList.toggle('active', b.dataset.mode === mode);
     });
-    const showFour = activeNums.includes(4);
-    row4.classList.toggle('mode-hidden', !showFour);
-    trayUnit4.classList.toggle('mode-hidden', !showFour);
+    ALL_NUMS.forEach(n=>{
+      const show = activeNums.includes(n);
+      rowEls[n].classList.toggle('mode-hidden', !show);
+      trayUnitEls[n].classList.toggle('mode-hidden', !show);
+    });
     overlay.style.height = overlayHeight() + 'px';
     resetAll();
   }
 
-  document.getElementById('modeBtn2').addEventListener('click', ()=> applyMode('2'));
-  document.getElementById('modeBtn3').addEventListener('click', ()=> applyMode('3'));
+  document.getElementById('modeBtn23').addEventListener('click', ()=> applyMode('2-3'));
+  document.getElementById('modeBtn34').addEventListener('click', ()=> applyMode('3-4'));
+  document.getElementById('modeBtn234').addEventListener('click', ()=> applyMode('2-3-4'));
 
   /* ---------------- Drag & drop: placing new blocks from the tray ---------------- */
 
@@ -952,7 +959,7 @@
   ALL_NUMS.forEach(setupDrag);
   ALL_NUMS.forEach(setupRemoveDrag);
   renderFoundChips();
-  applyMode('3');
+  applyMode('2-3-4');
 
   window.addEventListener('resize', ()=>{
     boardInner.style.width = (labelWidthPx() + COLUMNS*cellSizePx()) + 'px';
